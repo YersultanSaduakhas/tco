@@ -18,14 +18,16 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
   const bufferDistanceRef = React.useRef(0)
   const bufferUnitRef = React.useRef('Meters')
   const bufferedGraphicRef = React.useRef<__esri.Graphic>(null)
-
+  //const [bufferedGraphicRef, setBufferedGraphicRef] = React.useRef<__esri.Graphic>(null);
+  const graphicsArr = React.useRef([]);
+  const modulesM = React.useRef<any[]>(null);
 
   hooks.useEffectOnce(() => {
     loadArcGISJSAPIModules([
       'esri/Graphic'
     ]).then((modules) => {
-      const Graphic = modules[0]
-      bufferedGraphicRef.current = new Graphic({
+      modulesM.current = modules;
+      /*bufferedGraphicRef.current = new Graphic({
         symbol: {
           type: 'simple-fill',
           color: [51, 51, 204, 0.5],
@@ -35,7 +37,7 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
             width: 1
           }
         }
-      })
+      })*/
     })
   })
 
@@ -46,11 +48,23 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
   };
 
   const applyBufferEffect = React.useCallback(async () => {
+    let bufferedGraphicRef_ = new modulesM.current[0]({
+      symbol: {
+        type: 'simple-fill',
+        color: [51, 51, 204, 0.5],
+        style: 'solid',
+        outline: {
+          color: [51, 51, 204, 0.8],
+          width: 1
+        }
+      }
+    });
     if (!geometryRef.current || bufferDistanceRef.current === 0) {
-      bufferedGraphicRef.current.geometry = null
+      bufferedGraphicRef_.geometry = null;
+      bufferedGraphicRef.current = bufferedGraphicRef_;
+      //setBufferedGraphicRef(bufferedGraphicRef_);
       return
     }
-
     const geometry = geometryRef.current
     // https://developers.arcgis.com/javascript/latest/api-reference/esri-geometry-geometryEngine.html#buffer
     if (geometry.spatialReference?.isGeographic && !geometry.spatialReference.isWGS84) {
@@ -74,36 +88,47 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
         outSpatialReference: geometry.spatialReference,
         geometries: [geometry]
       }))
-      bufferedGraphicRef.current.geometry = polygons[0]
+      bufferedGraphicRef_.current.geometry = polygons[0]
     } else {
       if (!geometryEngineRef.current) {
         geometryEngineRef.current = await loadArcGISJSAPIModule('esri/geometry/geometryEngine')
       }
       if (geometry.spatialReference?.isWGS84 || geometry.spatialReference?.isWebMercator) {
-        bufferedGraphicRef.current.geometry = geometryEngineRef.current.geodesicBuffer(geometry, bufferDistanceRef.current, lodash.kebabCase(bufferUnitRef.current) as any) as __esri.Polygon
+        bufferedGraphicRef_.geometry = geometryEngineRef.current.geodesicBuffer(geometry, bufferDistanceRef.current, lodash.kebabCase(bufferUnitRef.current) as any) as __esri.Polygon
       } else {
-        bufferedGraphicRef.current.geometry = geometryEngineRef.current.buffer(geometry, bufferDistanceRef.current, lodash.kebabCase(bufferUnitRef.current) as any) as __esri.Polygon
+        bufferedGraphicRef_.geometry = geometryEngineRef.current.buffer(geometry, bufferDistanceRef.current, lodash.kebabCase(bufferUnitRef.current) as any) as __esri.Polygon
       }
     }
+    graphicsArr.current.push(bufferedGraphicRef_);
+
   }, [])
 
   const handleDrawEnd = React.useCallback((graphic, getLayerFun, clearAfterApply) => {
+    if (!graphic) return;
     getLayerFunRef.current = getLayerFun
-    const layer = getLayerFunRef.current && getLayerFunRef.current()
+    //    const layer = getLayerFunRef.current && getLayerFunRef.current()
     geometryRef.current = graphic?.geometry
     applyBufferEffect().then(() => {
-      if (bufferedGraphicRef.current.geometry) {
-        layer?.add(bufferedGraphicRef.current)
+      if (!bufferedGraphicRef.current.geometry) {
+        if (geometryRef.current) {
+          graphicsArr.current.push(graphic);
+        }
       }
+      getLayerFunRef.current && (getLayerFunRef.current)().removeAll()
+      getLayerFunRef.current().addMany(graphicsArr.current);
+
     })
     //onGeometryChange(graphic?.geometry, layer, graphic, clearAfterApply)
   }, [])
 
   const handleBufferChange = React.useCallback((distance, unit) => {
+
     bufferDistanceRef.current = distance
     bufferUnitRef.current = unit
+    /*
     applyBufferEffect()
-    //onBufferChange(distance, unit)
+    //onBufferChange(distance, unit)*
+    */
   }, [applyBufferEffect])
 
   return (
@@ -117,6 +142,7 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
             <InteractiveDraw
               jimuMapView={jimuMapView}
               onDrawEnd={handleDrawEnd}
+              onCleared={() => { graphicsArr.current = [] }}
             />
             <div role='group' aria-label={'bufferDistance'} css={css`margin-top: 0.75rem;`}>
               <div className='text-truncate'>{'buffer distance'}</div>

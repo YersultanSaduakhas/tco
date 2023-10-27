@@ -7,7 +7,8 @@ import { type JimuDrawCreatedDescriptor, JimuDrawCreationMode } from 'jimu-ui/ad
 import { EntityStatusType, StatusIndicator } from '../common/common-components'
 export interface InteractiveDrawProps {
     jimuMapView: JimuMapView
-    onDrawEnd: (graphic: __esri.Graphic, getLayerFun?, clearAfterApply?: boolean) => void
+    onDrawEnd: (graphic: __esri.Graphic, getLayerFun?, clearAfterApply?: boolean) => void,
+    onCleared: () => void
 }
 
 enum CreateToolType {
@@ -31,7 +32,7 @@ const sketchToolInfoMap = {
 }
 
 export function InteractiveDraw(props: InteractiveDrawProps) {
-    const { jimuMapView, onDrawEnd } = props
+    const { jimuMapView, onDrawEnd, onCleared } = props
     const [mapModule, setMapModule] = React.useState(null)
     const getLayerFunRef = React.useRef<() => __esri.GraphicsLayer>(null)
     const graphicRef = React.useRef(null)
@@ -60,7 +61,7 @@ export function InteractiveDraw(props: InteractiveDrawProps) {
     }, [])
 
     const handleDrawStart = React.useCallback(() => {
-        getLayerFunRef.current && (getLayerFunRef.current)().removeAll()
+        //getLayerFunRef.current && (getLayerFunRef.current)().removeAll()
     }, [])
 
     const handleDrawEnd = React.useCallback(
@@ -74,6 +75,8 @@ export function InteractiveDraw(props: InteractiveDrawProps) {
     const handleCleared = React.useCallback(() => {
         graphicRef.current = null
         onDrawEnd(null)
+        getLayerFunRef.current && (getLayerFunRef.current)().removeAll()
+        onCleared();
     }, [onDrawEnd])
 
     const handleClearSettingChange = React.useCallback((e) => {
