@@ -8,7 +8,8 @@ import { EntityStatusType, StatusIndicator } from '../common/common-components'
 export interface InteractiveDrawProps {
     jimuMapView: JimuMapView
     onDrawEnd: (graphic: __esri.Graphic, getLayerFun?, clearAfterApply?: boolean) => void,
-    onCleared: () => void
+    onCleared: () => void,
+    onCreated: (getLayerFun?) => void
 }
 
 enum CreateToolType {
@@ -32,24 +33,24 @@ const sketchToolInfoMap = {
 }
 
 export function InteractiveDraw(props: InteractiveDrawProps) {
-    const { jimuMapView, onDrawEnd, onCleared } = props
+    const { jimuMapView, onDrawEnd, onCleared, onCreated } = props
     const [mapModule, setMapModule] = React.useState(null)
     const getLayerFunRef = React.useRef<() => __esri.GraphicsLayer>(null)
     const graphicRef = React.useRef(null)
     const [clearAfterApply, setClearAfterApply] = React.useState(false)
 
-    const visibleElements = React.useMemo(() => {
-        return {
-            createTools: sketchToolInfoMap,
-            selectionTools: {
-                'lasso-selection': false,
-                'rectangle-selection': false
-            },
-            settingsMenu: false,
-            undoRedoMenu: false
-        }
-    }, [])
+    // visibleElements
+    const visibleElements = {} as __esri.SketchVisibleElements
+    visibleElements.createTools = {
+        point: true,
+        polyline: true,
+        polygon: true,
+        rectangle: true,
+        circle: true
+    }
 
+    // hide API setting icon for 10.1
+    visibleElements.settingsMenu = false
     hooks.useEffectOnce(() => {
         moduleLoader.loadModule('jimu-ui/advanced/map').then((result) => {
             setMapModule(result)
@@ -57,7 +58,9 @@ export function InteractiveDraw(props: InteractiveDrawProps) {
     })
 
     const handleDrawToolCreated = React.useCallback((jimuDrawToolsRef: JimuDrawCreatedDescriptor) => {
-        getLayerFunRef.current = jimuDrawToolsRef.getGraphicsLayer
+        //TODO here get saved data and push to layer
+        getLayerFunRef.current = jimuDrawToolsRef.getGraphicsLayer;
+        onCreated(jimuDrawToolsRef.getGraphicsLayer);
     }, [])
 
     const handleDrawStart = React.useCallback(() => {
@@ -98,10 +101,10 @@ export function InteractiveDraw(props: InteractiveDrawProps) {
         <div>
             <JimuDraw
                 jimuMapView={jimuMapView}
-                disableSymbolSelector
+                // disableSymbolSelector
                 drawingOptions={{
                     creationMode: JimuDrawCreationMode.Single,
-                    updateOnGraphicClick: false,
+                    updateOnGraphicClick: true,
                     visibleElements: visibleElements
                 }}
                 uiOptions={{

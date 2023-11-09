@@ -21,7 +21,7 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
   //const [bufferedGraphicRef, setBufferedGraphicRef] = React.useRef<__esri.Graphic>(null);
   const graphicsArr = React.useRef([]);
   const modulesM = React.useRef<any[]>(null);
-
+  const localStorageGraphicsItemKey = 'graphicItemsToLocal';
   hooks.useEffectOnce(() => {
     loadArcGISJSAPIModules([
       'esri/Graphic'
@@ -100,23 +100,27 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
       }
     }
     graphicsArr.current.push(bufferedGraphicRef_);
-
   }, [])
+
+  const saveGraphicsToLocalStorage = (arr: any[]) => {
+    localStorage.setItem(localStorageGraphicsItemKey, JSON.stringify([]));
+    let data_ = [];
+    for (let i = 0; i < arr.length; i++) {
+      data_.push(arr[i].toJSON());
+    }
+    localStorage.setItem(localStorageGraphicsItemKey, JSON.stringify(data_));
+  };
 
   const handleDrawEnd = React.useCallback((graphic, getLayerFun, clearAfterApply) => {
     if (!graphic) return;
     getLayerFunRef.current = getLayerFun
     //    const layer = getLayerFunRef.current && getLayerFunRef.current()
     geometryRef.current = graphic?.geometry
+    graphicsArr.current.push(graphic);
     applyBufferEffect().then(() => {
-      if (!bufferedGraphicRef.current.geometry) {
-        if (geometryRef.current) {
-          graphicsArr.current.push(graphic);
-        }
-      }
       getLayerFunRef.current && (getLayerFunRef.current)().removeAll()
       getLayerFunRef.current().addMany(graphicsArr.current);
-
+      saveGraphicsToLocalStorage(graphicsArr.current);
     })
     //onGeometryChange(graphic?.geometry, layer, graphic, clearAfterApply)
   }, [])
@@ -143,6 +147,18 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
               jimuMapView={jimuMapView}
               onDrawEnd={handleDrawEnd}
               onCleared={() => { graphicsArr.current = [] }}
+              onCreated={(getLayerFun) => {
+
+                let localData = JSON.parse(localStorage.getItem(localStorageGraphicsItemKey));
+                if (localData && localData.length > 0) {
+                  let localData_ = [];
+                  localData.forEach((item__) => {
+                    localData_.push(modulesM.current[0].fromJSON(item__));
+                  })
+                  graphicsArr.current = localData_;
+                  getLayerFun().addMany(localData_);
+                }
+              }}
             />
             <div role='group' aria-label={'bufferDistance'} css={css`margin-top: 0.75rem;`}>
               <div className='text-truncate'>{'buffer distance'}</div>
