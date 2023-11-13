@@ -4,6 +4,12 @@ import { JimuMapViewComponent, type JimuMapView, loadArcGISJSAPIModules } from '
 import { InteractiveDraw } from './interactive-draw-tool'
 import { QueryTaskContext } from './query-task-context'
 import { BufferInput } from './buffer-input'
+import { SearchOutlined } from 'jimu-icons/outlined/editor/search'
+import { TrashOutlined } from 'jimu-icons/outlined/editor/trash'
+import { VisibleOutlined } from 'jimu-icons/outlined/application/visible'
+import { InvisibleOutlined } from 'jimu-icons/outlined/application/invisible'
+import { TextInput, Button } from 'jimu-ui'
+import './main.css';
 
 const Widget = (props: AllWidgetProps<IMConfig>) => {
   /** ADD: **/
@@ -20,6 +26,7 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
   const bufferedGraphicRef = React.useRef<__esri.Graphic>(null)
   //const [bufferedGraphicRef, setBufferedGraphicRef] = React.useRef<__esri.Graphic>(null);
   const graphicsArr = React.useRef([]);
+  const [graphicsArrState, setGraphicsArrState] = React.useState<any[]>([]);
   const modulesM = React.useRef<any[]>(null);
   const localStorageGraphicsItemKey = 'graphicItemsToLocal';
   hooks.useEffectOnce(() => {
@@ -99,7 +106,10 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
         bufferedGraphicRef_.geometry = geometryEngineRef.current.buffer(geometry, bufferDistanceRef.current, lodash.kebabCase(bufferUnitRef.current) as any) as __esri.Polygon
       }
     }
+    bufferedGraphicRef_.attributes['name'] = 'new buffered' + bufferedGraphicRef_.geometry.type;
     graphicsArr.current.push(bufferedGraphicRef_);
+    graphicsArrState.push(bufferedGraphicRef_)
+    setGraphicsArrState(graphicsArrState);
   }, [])
 
   const saveGraphicsToLocalStorage = (arr: any[]) => {
@@ -116,7 +126,10 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
     getLayerFunRef.current = getLayerFun
     //    const layer = getLayerFunRef.current && getLayerFunRef.current()
     geometryRef.current = graphic?.geometry
+    graphic.attributes['name'] = 'new ' + graphic.geometry.type;
     graphicsArr.current.push(graphic);
+    graphicsArrState.push(graphic)
+    setGraphicsArrState(graphicsArrState);
     applyBufferEffect().then(() => {
       getLayerFunRef.current && (getLayerFunRef.current)().removeAll()
       getLayerFunRef.current().addMany(graphicsArr.current);
@@ -146,9 +159,13 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
             <InteractiveDraw
               jimuMapView={jimuMapView}
               onDrawEnd={handleDrawEnd}
-              onCleared={() => { graphicsArr.current = [] }}
+              onCleared={() => {
+                graphicsArr.current = [];
+                localStorage.setItem(localStorageGraphicsItemKey, JSON.stringify([]));
+                setGraphicsArrState([]);
+              }}
               onCreated={(getLayerFun) => {
-
+                getLayerFunRef.current = getLayerFun;
                 let localData = JSON.parse(localStorage.getItem(localStorageGraphicsItemKey));
                 if (localData && localData.length > 0) {
                   let localData_ = [];
@@ -156,21 +173,89 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
                     localData_.push(modulesM.current[0].fromJSON(item__));
                   })
                   graphicsArr.current = localData_;
+                  setGraphicsArrState(localData_);
                   getLayerFun().addMany(localData_);
                 }
               }}
             />
             <div role='group' aria-label={'bufferDistance'} css={css`margin-top: 0.75rem;`}>
               <div className='text-truncate'>{'buffer distance'}</div>
-              <div className='d-flex mt-1'>
+              <div className='mt-1'>
                 <BufferInput distance={0} unit={UnitType.Meters} onBufferChange={handleBufferChange} />
+                {(graphicsArrState && graphicsArrState.length > 0) && (
+                  <table css={css`width: 100%;`} className='fixed_header'>
+                    <thead>
+                      <tr>
+                        <td>#</td>
+                        <td>Name</td>
+                        <td>Type</td>
+                        <td>Action</td>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {graphicsArrState.map(function (graphicsItem, i) {
+                        return (
+                          <tr key={i}>
+                            <td>{i + 1}</td>
+                            <td>
+                              <TextInput
+                                type="text"
+                                value={graphicsItem.attributes['name']}
+                                onChange={(evt: any) => {
+                                  graphicsItem.attributes['name'] = evt.currentTarget.value;
+                                  graphicsArrState[i] = graphicsItem;
+                                  setGraphicsArrState(graphicsArrState);
+                                  graphicsArr.current = graphicsArrState;
+                                  saveGraphicsToLocalStorage(graphicsArrState)
+
+                                }}
+                                style={{ display: 'flex', flex: 1 }}
+                              />
+
+                            </td>
+                            <td>{graphicsItem.geometry.type.toUpperCase()}</td>
+                            <td css={css`display: flex;`}>
+                              <Button icon type='tertiary' size='sm' title={'zoom'} onClick={() => {
+                                jimuMapView.view.goTo({
+                                  target: [graphicsItem.geometry], zoom: 10
+                                })
+                              }}>
+                                <SearchOutlined />
+                              </Button>
+                              <Button icon type='tertiary' size='sm' title={'delete'} onClick={() => {
+                                if (confirm("Delete object #" + (i + 1) + " ?") == true) {
+                                  graphicsArr.current.splice(i, 1);
+                                  setGraphicsArrState(graphicsArrState.splice(i, 1));
+                                  getLayerFunRef.current && (getLayerFunRef.current)().removeAll()
+                                  getLayerFunRef.current().addMany(graphicsArr.current);
+                                  saveGraphicsToLocalStorage(graphicsArr.current)
+                                }
+                              }}>
+                                <TrashOutlined />
+                              </Button>
+                              <Button icon type='tertiary' size='sm' title={'visible'} onClick={() => {
+                                graphicsArrState[i].visible = !graphicsArrState[i].visible;
+                                setGraphicsArrState(graphicsArrState);
+                              }}>
+                                {graphicsItem.visible && <VisibleOutlined />}
+                                {!graphicsItem.visible && <InvisibleOutlined />}
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>)}
+                {(graphicsArrState.length == 0) && (
+                  <div> Draw objects on map</div>
+                )}
               </div>
             </div>
           </React.Fragment>
         )}
       </React.Fragment>
 
-    </div>
+    </div >
   );
 }
 

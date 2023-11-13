@@ -62,24 +62,26 @@ export function BufferInput(props: Props) {
 
   return (
     <React.Fragment>
-      <NumericInput
-        aria-label={'bufferDistance'}
-        className='mr-1'
-        value={d}
-        onChange={handleDistanceChange}
-        onAcceptValue={handleDistanceAccepted}
-      />
-      <Select
-        aria-label={'unit'}
-        value={u}
-        onChange={handleBufferUnitChange}
-      >
-        {Object.values(UnitType).map((value) => (
-          <option key={value} value={value}>
-            {`${value}`}
-          </option>
-        ))}
-      </Select>
+      <div className='d-flex'>
+        <NumericInput
+          aria-label={'bufferDistance'}
+          className='mr-1'
+          value={d}
+          onChange={handleDistanceChange}
+          onAcceptValue={handleDistanceAccepted}
+        />
+        <Select
+          aria-label={'unit'}
+          value={u}
+          onChange={handleBufferUnitChange}
+        >
+          {Object.values(UnitType).map((value) => (
+            <option key={value} value={value}>
+              {`${value}`}
+            </option>
+          ))}
+        </Select>
+      </div>
     </React.Fragment>
   )
 }
