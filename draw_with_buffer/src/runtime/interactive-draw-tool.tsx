@@ -9,7 +9,8 @@ export interface InteractiveDrawProps {
     jimuMapView: JimuMapView
     onDrawEnd: (graphic: __esri.Graphic, getLayerFun?, clearAfterApply?: boolean) => void,
     onCleared: () => void,
-    onCreated: (getLayerFun?) => void
+    onCreated: (getLayerFun?) => void,
+    onDrawUpdated: (getLayerFun?) => void
 }
 
 enum CreateToolType {
@@ -33,7 +34,7 @@ const sketchToolInfoMap = {
 }
 
 export function InteractiveDraw(props: InteractiveDrawProps) {
-    const { jimuMapView, onDrawEnd, onCleared, onCreated } = props
+    const { jimuMapView, onDrawEnd, onCleared, onCreated,onDrawUpdated } = props
     const [mapModule, setMapModule] = React.useState(null)
     const getLayerFunRef = React.useRef<() => __esri.GraphicsLayer>(null)
     const graphicRef = React.useRef(null)
@@ -82,6 +83,9 @@ export function InteractiveDraw(props: InteractiveDrawProps) {
         onCleared();
     }, [onDrawEnd])
 
+    const handleUpdated = React.useCallback(() => {
+        onDrawUpdated(getLayerFunRef.current)
+    },[onDrawUpdated]);
     const handleClearSettingChange = React.useCallback((e) => {
         if (graphicRef.current) {
             onDrawEnd(graphicRef.current, getLayerFunRef.current, e.target.checked)
@@ -114,6 +118,7 @@ export function InteractiveDraw(props: InteractiveDrawProps) {
                 onDrawingStarted={handleDrawStart}
                 onDrawingFinished={handleDrawEnd}
                 onDrawingCleared={handleCleared}
+                onDrawingUpdated={handleUpdated}
             />
             {/* <label className='d-flex align-items-center'>
                 <Checkbox checked={clearAfterApply} onChange={handleClearSettingChange} className='mr-2' />

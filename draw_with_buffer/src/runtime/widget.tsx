@@ -2,7 +2,6 @@ import { React, type AllWidgetProps, jsx, css, type ImmutableArray, lodash, load
 import { UnitType, type IMConfig } from '../config'
 import { JimuMapViewComponent, type JimuMapView, loadArcGISJSAPIModules } from 'jimu-arcgis'
 import { InteractiveDraw } from './interactive-draw-tool'
-import { QueryTaskContext } from './query-task-context'
 import { BufferInput } from './buffer-input'
 import { SearchOutlined } from 'jimu-icons/outlined/editor/search'
 import { TrashOutlined } from 'jimu-icons/outlined/editor/trash'
@@ -10,25 +9,24 @@ import { VisibleOutlined } from 'jimu-icons/outlined/application/visible'
 import { InvisibleOutlined } from 'jimu-icons/outlined/application/invisible'
 import { TextInput, Button } from 'jimu-ui'
 import './main.css';
+import { ChangeEvent } from 'react'
 
 const Widget = (props: AllWidgetProps<IMConfig>) => {
   /** ADD: **/
   const { useState } = React
   const [jimuMapView, setJimuMapView] = React.useState<JimuMapView>(null);
-  const queryTaskContext = React.useContext(QueryTaskContext)
-  const resetSymbolRef = React.useRef(queryTaskContext.resetSymbol)
   const getLayerFunRef = React.useRef<() => __esri.GraphicsLayer>(null)
   const geometryEngineRef = React.useRef<__esri.geometryEngine>(null)
   const geometryServiceRef = React.useRef<{ geometryService: __esri.geometryService, bufferParameters: __esri.BufferParametersConstructor }>(null)
   const geometryRef = React.useRef<__esri.Geometry>(null)
   const bufferDistanceRef = React.useRef(0)
   const bufferUnitRef = React.useRef('Meters')
-  const bufferedGraphicRef = React.useRef<__esri.Graphic>(null)
-  //const [bufferedGraphicRef, setBufferedGraphicRef] = React.useRef<__esri.Graphic>(null);
+  const bufferedGraphicRef = React.useRef<__esri.Graphic>(null);
   const graphicsArr = React.useRef([]);
   const [graphicsArrState, setGraphicsArrState] = React.useState<any[]>([]);
   const modulesM = React.useRef<any[]>(null);
   const localStorageGraphicsItemKey = 'graphicItemsToLocal';
+  
   hooks.useEffectOnce(() => {
     loadArcGISJSAPIModules([
       'esri/Graphic'
@@ -106,10 +104,10 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
         bufferedGraphicRef_.geometry = geometryEngineRef.current.buffer(geometry, bufferDistanceRef.current, lodash.kebabCase(bufferUnitRef.current) as any) as __esri.Polygon
       }
     }
-    bufferedGraphicRef_.attributes['name'] = 'new buffered' + bufferedGraphicRef_.geometry.type;
+    bufferedGraphicRef_.attributes = {'name':'new buffered ' + bufferedGraphicRef_.geometry.type};
     graphicsArr.current.push(bufferedGraphicRef_);
-    graphicsArrState.push(bufferedGraphicRef_)
-    setGraphicsArrState(graphicsArrState);
+    updateRenderArray();
+    saveGraphicsToLocalStorage(graphicsArr.current);
   }, [])
 
   const saveGraphicsToLocalStorage = (arr: any[]) => {
@@ -125,11 +123,10 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
     if (!graphic) return;
     getLayerFunRef.current = getLayerFun
     //    const layer = getLayerFunRef.current && getLayerFunRef.current()
-    geometryRef.current = graphic?.geometry
+    geometryRef.current = graphic?.geometry;
     graphic.attributes['name'] = 'new ' + graphic.geometry.type;
     graphicsArr.current.push(graphic);
-    graphicsArrState.push(graphic)
-    setGraphicsArrState(graphicsArrState);
+    updateRenderArray();
     applyBufferEffect().then(() => {
       getLayerFunRef.current && (getLayerFunRef.current)().removeAll()
       getLayerFunRef.current().addMany(graphicsArr.current);
@@ -147,6 +144,58 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
     //onBufferChange(distance, unit)*
     */
   }, [applyBufferEffect])
+
+
+  const updateItemName = (newNam, ind)=>{
+      graphicsArr.current[ind].attributes.name = newNam;
+      updateRenderArray();
+  }
+
+  const updateRenderArray =()=>{
+    let newArr = [];
+    graphicsArr.current.map((item:any)=>{
+      newArr.push(item);
+    });
+    setGraphicsArrState(newArr);
+  }
+
+  const onFileChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const files = (e.target as HTMLInputElement).files;
+  
+    if (files) {
+      var fileReader=new FileReader();
+      fileReader.onload=function(){
+          let dataStr_ = fileReader.result;
+          try{
+            let featuresCollection = JSON.parse(dataStr_);
+            let graphics_ = [];
+            if(featuresCollection.features&&featuresCollection.features.length>0){
+              featuresCollection.features.map((feat_:any)=>{
+                if(feat_.properties&&feat_.properties.graphic){
+                  graphics_.push(modulesM.current[0].fromJSON(feat_.properties.graphic));
+                }
+              })
+            }
+            if(graphics_.length>0){
+              graphicsArr.current = graphicsArr.current.concat(graphics_);
+              updateRenderArray();
+              saveGraphicsToLocalStorage(graphicsArr.current);
+              getLayerFunRef.current && (getLayerFunRef.current)().removeAll();
+              getLayerFunRef.current().addMany(graphicsArr.current);
+              alert('Features successfully uploaded!'); 
+            }else{
+              alert('Could not read features from file')
+            }
+          }catch(e:any){
+
+          }
+      }
+      fileReader.readAsText(files[0]);
+      e.target.type = "text";
+      e.target.type = "file";
+    }
+  };
+  
 
   return (
     <div className="widget-starter jimu-widget" style={{ background: 'white' }}>
@@ -177,75 +226,145 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
                   getLayerFun().addMany(localData_);
                 }
               }}
+              onDrawUpdated={(getLayerFun) => {
+                let data = []
+                getLayerFun().graphics.map((graphic:any)=>{
+                    data.push(graphic);
+                });
+                graphicsArr.current = data;
+                updateRenderArray()
+              }}
             />
             <div role='group' aria-label={'bufferDistance'} css={css`margin-top: 0.75rem;`}>
               <div className='text-truncate'>{'buffer distance'}</div>
               <div className='mt-1'>
                 <BufferInput distance={0} unit={UnitType.Meters} onBufferChange={handleBufferChange} />
                 {(graphicsArrState && graphicsArrState.length > 0) && (
-                  <table css={css`width: 100%;`} className='fixed_header'>
-                    <thead>
-                      <tr>
-                        <td>#</td>
-                        <td>Name</td>
-                        <td>Type</td>
-                        <td>Action</td>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {graphicsArrState.map(function (graphicsItem, i) {
-                        return (
-                          <tr key={i}>
-                            <td>{i + 1}</td>
-                            <td>
-                              <TextInput
-                                type="text"
-                                value={graphicsItem.attributes['name']}
-                                onChange={(evt: any) => {
-                                  graphicsItem.attributes['name'] = evt.currentTarget.value;
+                  <>
+                    <table css={css`width: 100%;`} className='fixed_header'>
+                      <thead>
+                        <tr>
+                          <td>#</td>
+                          <td>Name</td>
+                          <td>Type</td>
+                          <td>Action</td>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {graphicsArrState.map((graphicsItem, i)=> (                      
+                            <tr key={i}>
+                              <td>{i + 1}</td>
+                              <td>
+                                <TextInput
+                                  type="text"
+                                  value={graphicsItem.attributes['name']}
+                                  onChange={(evt: any) => {
+                                    updateItemName(evt.currentTarget.value,i);
+                                    saveGraphicsToLocalStorage(graphicsArrState)
+
+                                  }}
+                                  style={{ display: 'flex', flex: 1 }}
+                                />
+
+                              </td>
+                              <td>{graphicsItem.geometry.type.toUpperCase()}</td>
+                              <td css={css`display: flex;`}>
+                                <Button icon type='tertiary' size='sm' title={'zoom'} onClick={() => {
+                                  if(graphicsItem.geometry.type=='point'){
+                                    jimuMapView.view.goTo({
+                                      target: [graphicsItem.geometry], zoom: 10
+                                    })
+                                  }else{
+                                    jimuMapView.view.goTo({
+                                      target: [graphicsItem.geometry]
+                                    })
+                                  }
+                                }}>
+                                  <SearchOutlined />
+                                </Button>
+                                <Button icon type='tertiary' size='sm' title={'delete'} onClick={() => {
+                                  if (confirm("Delete object #" + (i + 1) + " ?") == true) {
+                                    graphicsArr.current.splice(i, 1);
+                                    updateRenderArray();
+                                    getLayerFunRef.current && (getLayerFunRef.current)().removeAll()
+                                    getLayerFunRef.current().addMany(graphicsArr.current);
+                                    saveGraphicsToLocalStorage(graphicsArr.current)
+                                  }
+                                }}>
+                                  <TrashOutlined />
+                                </Button>
+                                <Button icon type='tertiary' size='sm' title={'visible'} onClick={() => {
+                                  graphicsItem.visible = !graphicsItem.visible;
                                   graphicsArrState[i] = graphicsItem;
-                                  setGraphicsArrState(graphicsArrState);
-                                  graphicsArr.current = graphicsArrState;
-                                  saveGraphicsToLocalStorage(graphicsArrState)
+                                  updateRenderArray();
+                                  saveGraphicsToLocalStorage(graphicsArr.current);
+                                }}>
+                                  {graphicsItem.visible==true && <VisibleOutlined />}
+                                  {graphicsItem.visible==false && <InvisibleOutlined />}
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </>
+                  )}
+                  <div css={css`display: flex;flex-direction:row;`}>
+                  {(graphicsArrState.length > 0) && (<Button type="secondary" onClick={() => {
 
-                                }}
-                                style={{ display: 'flex', flex: 1 }}
-                              />
-
-                            </td>
-                            <td>{graphicsItem.geometry.type.toUpperCase()}</td>
-                            <td css={css`display: flex;`}>
-                              <Button icon type='tertiary' size='sm' title={'zoom'} onClick={() => {
-                                jimuMapView.view.goTo({
-                                  target: [graphicsItem.geometry], zoom: 10
-                                })
-                              }}>
-                                <SearchOutlined />
-                              </Button>
-                              <Button icon type='tertiary' size='sm' title={'delete'} onClick={() => {
-                                if (confirm("Delete object #" + (i + 1) + " ?") == true) {
-                                  graphicsArr.current.splice(i, 1);
-                                  setGraphicsArrState(graphicsArrState.splice(i, 1));
-                                  getLayerFunRef.current && (getLayerFunRef.current)().removeAll()
-                                  getLayerFunRef.current().addMany(graphicsArr.current);
-                                  saveGraphicsToLocalStorage(graphicsArr.current)
-                                }
-                              }}>
-                                <TrashOutlined />
-                              </Button>
-                              <Button icon type='tertiary' size='sm' title={'visible'} onClick={() => {
-                                graphicsArrState[i].visible = !graphicsArrState[i].visible;
-                                setGraphicsArrState(graphicsArrState);
-                              }}>
-                                {graphicsItem.visible && <VisibleOutlined />}
-                                {!graphicsItem.visible && <InvisibleOutlined />}
-                              </Button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>)}
+                      let features = [];
+                      graphicsArr.current.map((graphic_:any)=>{
+                        let geom_ = null;
+                        if(graphic_.geometry.type=='point'){
+                          geom_ = {
+                            "type": "Point",
+                            "coordinates": [graphic_.geometry.x,graphic_.geometry.y]
+                          }
+                        }
+                        if(graphic_.geometry.type=='polyline'){
+                          geom_ = {
+                            "type": "MultiLineString",
+                            "coordinates": graphic_.geometry.paths
+                          }
+                        }
+                        if(graphic_.geometry.type=='polygon'){
+                          geom_ = {
+                            "type": "MultiPolygon",
+                            "coordinates": graphic_.geometry.rings
+                          }
+                        }
+                        if(geom_){
+                          features.push({
+                            "type": "Feature",
+                            "geometry": geom_,
+                              "properties": {
+                                "name": graphic_.attributes.name,
+                                "graphic":graphic_.toJSON()
+                              }
+                          });
+                        }
+                        if(features.length>0){
+                          let res = { 
+                            "type": "FeatureCollection",
+                            "features": features
+                          }
+                          const jsonString = `data:text/json;chatset=utf-8,${encodeURIComponent(
+                            JSON.stringify(res)
+                          )}`;
+                          const link = document.createElement("a");
+                          link.href = jsonString;
+                          link.download = "data.json";
+                      
+                          link.click();
+                        }
+                        else{
+                          alert("Noe features");
+                        }
+                      })
+                      }}>GeoJson Export</Button>)}
+                      <input type="file" name="file" id="file" className="inputfile" onChange={onFileChange}/>
+                      <label for="file">GeoJson Import</label>
+                    </div>
                 {(graphicsArrState.length == 0) && (
                   <div> Draw objects on map</div>
                 )}
