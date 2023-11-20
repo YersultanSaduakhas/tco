@@ -315,6 +315,7 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
                       let features = [];
                       graphicsArr.current.map((graphic_:any)=>{
                         let geom_ = null;
+
                         if(graphic_.geometry.type=='point'){
                           geom_ = {
                             "type": "Point",
@@ -342,25 +343,25 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
                                 "graphic":graphic_.toJSON()
                               }
                           });
-                        }
-                        if(features.length>0){
-                          let res = { 
-                            "type": "FeatureCollection",
-                            "features": features
-                          }
-                          const jsonString = `data:text/json;chatset=utf-8,${encodeURIComponent(
-                            JSON.stringify(res)
-                          )}`;
-                          const link = document.createElement("a");
-                          link.href = jsonString;
-                          link.download = "data.json";
-                      
-                          link.click();
-                        }
-                        else{
-                          alert("Noe features");
-                        }
+                        } 
                       })
+                      if(features.length>0){
+                        let res = { 
+                          "type": "FeatureCollection",
+                          "features": features
+                        }
+                        const jsonString = `data:text/json;chatset=utf-8,${encodeURIComponent(
+                          JSON.stringify(res)
+                        )}`;
+                        const link = document.createElement("a");
+                        link.href = jsonString;
+                        link.download = "data.json";
+                    
+                        link.click();
+                      }
+                      else{
+                        alert("Noe features");
+                      }
                       }}>GeoJson Export</Button>)}
                       <input type="file" name="file" id="file" className="inputfile" onChange={onFileChange}/>
                       <label for="file">GeoJson Import</label>
