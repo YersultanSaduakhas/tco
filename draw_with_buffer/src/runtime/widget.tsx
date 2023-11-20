@@ -232,7 +232,8 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
                     data.push(graphic);
                 });
                 graphicsArr.current = data;
-                updateRenderArray()
+                updateRenderArray();
+                saveGraphicsToLocalStorage(graphicsArr.current);
               }}
             />
             <div role='group' aria-label={'bufferDistance'} css={css`margin-top: 0.75rem;`}>
