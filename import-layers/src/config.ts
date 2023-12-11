@@ -1,7 +1,7 @@
 import { type ImmutableObject } from 'seamless-immutable'
 
 export interface Config {
-  exampleConfigProperty: string,
+  title: string,
   layers:any[];
 }
 

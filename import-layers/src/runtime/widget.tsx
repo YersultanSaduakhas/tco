@@ -1,17 +1,17 @@
-import { React, type AllWidgetProps, ServiceManager } from 'jimu-core';
+import { React, type AllWidgetProps, ServiceManager,Immutable } from 'jimu-core';
 import { type IMConfig } from '../config';
-import { Checkbox, Label } from 'jimu-ui';
+import { MultiSelect } from 'jimu-ui';
 import { useEffect, useState } from 'react';
 import { JimuMapViewComponent, type JimuMapView, loadArcGISJSAPIModules } from 'jimu-arcgis'
 import FeatureLayer from "esri/layers/FeatureLayer";
 import MapImageLayer from 'esri/layers/MapImageLayer'
-import { debug } from 'console';
 
 
 const Widget = (props: AllWidgetProps<IMConfig>) => {
 
   const [jimuMapView, setJimuMapView] = React.useState<JimuMapView>(null);
   const [layers, setLayers] = useState<any[]|any>([]);
+  const [selectedLayers, setSelectedLayers] = useState<any[]|any>([]);
   
   const modulesM = React.useRef<any[]>(null);
 
@@ -53,7 +53,8 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
           setLayers(layers);  
         })
         layers.push({
-          title:layer_.title,
+          value:layers.length,
+          label:layer_.title,
           url:layer_.url,
           checked:false,
           layerGroup:layerGroup,
@@ -67,7 +68,8 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
         layerGroup.push(
           new MapImageLayer({url:layer_.url}));
           layers.push({
-            title:layer_.title,
+            value:layers.length,
+            label:layer_.title,
             url:layer_.url,
             checked:false,
             layerGroup:layerGroup,
@@ -84,6 +86,21 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
     }
   };
 
+  const onLayerSelected = (evt, value, values) => {
+    layers.map((layerItem_:any)=>{
+      layerItem_.layerGroup.map((layer_:any)=>{
+        jimuMapView.view.map.remove(layer_);
+      });
+    });
+    layers.filter((layerItem_:any)=>{
+      return values.indexOf(layerItem_.value)>-1;
+    }).map((layerItem_:any)=>{
+      layerItem_.layerGroup.map((layer_:any)=>{
+        jimuMapView.view.map.add(layer_);
+      });
+    });
+  }
+
   return (
     <div className="widget-starter jimu-widget" style={{ background: 'white' }}>
       <React.Fragment>
@@ -93,20 +110,19 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
         {jimuMapView?.view && (
           <React.Fragment>
             <div className="widget-demo jimu-widget m-2">
-              <p>Layers</p>
-              {layers.map((layer:any,index:number)=>{
-                return (<div><Label className={'cursor-pointer'}>
-                <Checkbox className={'mr-2 font-13'}
-                  onChange={(evt) => {checkLayer(evt.target.checked,index)}} checked={layer.checked} role={'checkbox'} aria-label={'ds'}
-                />
-                {layer.title}
-              </Label></div>);
-              })}
+              <p>{props.config.title}</p>
+              <MultiSelect
+                buttonProps={{
+                  title: 'Static title'
+                }}
+                items={layers}
+                onClickItem={onLayerSelected}
+                placeholder="Select layers"
+              />  
             </div>
           </React.Fragment>
         )}
       </React.Fragment>
-
     </div >
   );
 }
