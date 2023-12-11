@@ -1,0 +1,21 @@
+{
+  "exampleConfigProperty": "test",
+  "layers":[
+    {
+      "title": "Recreation",
+      "url": "https://sampleserver6.arcgisonline.com/arcgis/rest/services/Recreation/MapServer"
+    },
+    {
+      "title": "Military",
+      "url": "https://sampleserver6.arcgisonline.com/arcgis/rest/services/Military/MapServer"
+    },
+    {
+      "title": "USA",
+      "url": "https://sampleserver6.arcgisonline.com/arcgis/rest/services/USA/MapServer"
+    },
+    {
+      "title": "Wildfire",
+      "url": "https://sampleserver6.arcgisonline.com/arcgis/rest/services/Wildfire/FeatureServer"
+    }
+  ]
+}
