@@ -1,0 +1,18 @@
+{
+  "title": "Custom Chart Widget",
+  "layerServiceUrl":"https://sampleserver6.arcgisonline.com/arcgis/rest/services/Earthquakes_Since1970/MapServer/0/query",
+  "xAxis":"date_",
+  "yAxisess":[
+    {
+      "fieldName":"focal",
+      "color":"'#7cd6fd'",
+      "chartType":"bar"
+    },
+    {
+      "fieldName":"magnitude",
+      "color":"'#743ee2'",
+      "chartType":"line"
+    }
+  ]
+  
+}
