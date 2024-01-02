@@ -1,0 +1,85 @@
+import { React, type AllWidgetProps, ServiceManager,Immutable } from 'jimu-core';
+import { type IMConfig } from '../config';
+import { useEffect, useState ,useRef} from 'react';
+
+
+import * as frappe from './lib/frappe.js';
+import * as d3 from './lib/d3.min.js'
+
+const Widget = (props: AllWidgetProps<IMConfig>) => {
+
+  const mainRef = useRef<HTMLDivElement>()
+  const [chartData, setChartData] = useState<any[]|any>(null);
+  
+  useEffect(() => {
+    if(!chartData) return;
+    if (mainRef && mainRef.current) {
+      //debugger;;
+       
+      let xAxisDataLabels = [];
+      let yAxisessDataArray = {};
+      props.config.yAxisess.map((yAxis:any)=>{
+        yAxisessDataArray[yAxis.fieldName] = {
+          values:[],
+          chartType:yAxis.chartType,
+          name:chartData.fieldAliases[yAxis.fieldName],
+          color:yAxis.color
+        }
+      });
+
+      chartData.features.map((feat:any)=>{
+        xAxisDataLabels.push(new Date(feat.attributes[props.config.xAxis]).toUTCString());
+
+        props.config.yAxisess.map((yAxis:any)=>{  
+          yAxisessDataArray[yAxis.fieldName].values.push(feat.attributes[yAxis.fieldName]);
+        });
+
+      });
+      let datasets = [];
+      let colors = [];
+      Object.keys(yAxisessDataArray).map((item_:any)=>{
+        datasets.push(yAxisessDataArray[item_]);
+        colors.push(yAxisessDataArray[item_].color);
+      });
+      const data = {
+        labels: xAxisDataLabels,
+        datasets: datasets
+        }
+        //@ts-ignore
+        const chart = new frappe.Chart(mainRef.current, {
+            title: props.config.title,
+            data: data,
+            type: 'axis-mixed', 
+            height: 250,
+            colors: colors,
+            axisOptions: {
+              xIsSeries: true // default: false
+          },
+        });
+    }
+  }, [chartData])
+
+  useEffect(() => {
+    var url = new URL(props.config.layerServiceUrl);
+    let yAxisessFields = props.config.yAxisess.map(({ fieldName }) => fieldName);
+    //@ts-ignore
+    yAxisessFields.push(props.config.xAxis);
+    var params = [['where', '1=1'], ['outFields', yAxisessFields.join()],['returnGeometry','false'],['f','pjson']]
+
+    url.search = new URLSearchParams(params).toString();
+    
+    fetch(url)
+      .then((response) => response.json())
+      .then((data) => {
+        setChartData(data);
+      })
+  }, [props.config.layerServiceUrl])
+
+  return (
+    <div className="widget-d3 jimu-widget p-2" style={{background:'white'}}>
+      <div ref={mainRef}></div>
+  </div>
+  );
+}
+
+export default Widget

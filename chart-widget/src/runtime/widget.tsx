@@ -1,20 +1,19 @@
-import { React, type AllWidgetProps, ServiceManager,Immutable } from 'jimu-core';
+import { AllWidgetProps, React, jsx } from 'jimu-core'
 import { type IMConfig } from '../config';
-import { useEffect, useState ,useRef} from 'react';
+import * as d3 from './lib/d3.js'
+import { useState } from 'react';
+const { useEffect, useRef } = React
 
-
-import * as frappe from './lib/frappe.js'
-
-const Widget = (props: AllWidgetProps<IMConfig>) => {
-
-  const mainRef = useRef<HTMLDivElement>()
+export default function Widget (props: AllWidgetProps<IMConfig>) {
   const [chartData, setChartData] = useState<any[]|any>(null);
   
+  const mainRef = useRef<HTMLDivElement>()
+
   useEffect(() => {
-    if(!chartData) return;
-    if (mainRef && mainRef.current) {
-      //debugger;;
-       
+    if (mainRef && mainRef.current&&chartData) {
+      
+      let maxDate = 0; 
+      let minDate = 9999999999999999999999999999999;
       let xAxisDataLabels = [];
       let yAxisessDataArray = {};
       props.config.yAxisess.map((yAxis:any)=>{
@@ -27,36 +26,85 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
       });
 
       chartData.features.map((feat:any)=>{
-        xAxisDataLabels.push(new Date(feat.attributes[props.config.xAxis]).toUTCString());
-
+        let x_ = feat.attributes[props.config.xAxis];
+        if(!x_){
+          debugger;
+        }
+        let date__ = new Date(feat.attributes[props.config.xAxis]);
+        if(date__.getTime()>maxDate){
+          maxDate = date__.getTime();
+        }
+        if(date__.getTime()<minDate){
+          minDate = date__.getTime();
+        }
+        xAxisDataLabels.push(date__);
         props.config.yAxisess.map((yAxis:any)=>{  
-          yAxisessDataArray[yAxis.fieldName].values.push(feat.attributes[yAxis.fieldName]);
+          let y_ = feat.attributes[yAxis.fieldName];
+          if(!y_){
+            y_ = 0;
+          }
+          yAxisessDataArray[yAxis.fieldName].values.push({x:date__,y:y_});
         });
 
       });
       let datasets = [];
       let colors = [];
+
+
       Object.keys(yAxisessDataArray).map((item_:any)=>{
         datasets.push(yAxisessDataArray[item_]);
         colors.push(yAxisessDataArray[item_].color);
       });
-      const data = {
-        labels: xAxisDataLabels,
-        datasets: datasets
-        }
-        //@ts-ignore
-        const chart = new frappe.Chart(mainRef.current, {
-            title: props.config.title,
-            data: data,
-            type: 'axis-mixed', 
-            height: 250,
-            colors: colors,
-            axisOptions: {
-              xIsSeries: true // default: false
-          },
-        });
+      
+      if(datasets.length==0) return;    
+
+      
+
+    const width = 640;
+    const height = 400;
+    const marginTop = 20;
+    const marginRight = 20;
+    const marginBottom = 30;
+    const marginLeft = 40;
+
+    // Declare the x (horizontal position) scale.
+    const x = d3.scaleTime()
+    .domain(d3.extent(datasets[1].values, function(d) { return d.x; }))
+    .range([marginLeft, width - marginRight]);
+
+      // Declare the y (vertical position) scale.
+      const y = d3.scaleLinear()
+      .domain([0, d3.max(datasets[1].values, function(d) { return +d.y; })])
+          .range([height - marginBottom, marginTop]);
+
+      // Create the SVG container.
+      const svg = d3.create("svg")
+          .attr("width", width)
+          .attr("height", height);
+
+      // Add the x-axis.
+      svg.append("g")
+          .attr("transform", `translate(0,${height - marginBottom})`)
+          .call(d3.axisBottom(x));
+
+      // Add the y-axis.
+      svg.append("g")
+        .attr("transform", `translate(${marginLeft},0)`)
+        .call(d3.axisLeft(y));
+
+        svg.append("path")
+      .datum(datasets[1].values)
+      .attr("fill", datasets[1].color)
+      .attr("stroke", datasets[1].color)
+      .attr("stroke-width", 1.5)
+      .attr("d", d3.line()
+        .x(function(d) { return x(d.x) })
+        .y(function(d) { return y(d.y) })
+        )
+
+      mainRef.current.appendChild(svg.node())
     }
-  }, [chartData])
+  }, [mainRef,chartData]);
 
   useEffect(() => {
     var url = new URL(props.config.layerServiceUrl);
@@ -75,10 +123,8 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
   }, [props.config.layerServiceUrl])
 
   return (
-    <div className="widget-d3 jimu-widget p-2" style={{background:'white'}}>
+    <div className="widget-d3 jimu-widget p-2">
       <div ref={mainRef}></div>
-  </div>
-  );
+    </div>
+  )
 }
-
-export default Widget
