@@ -68,7 +68,8 @@ export interface TimelineProps {
   updateStartTime: (startTime: number) => void,
   updateEndTime: (endTime: number) => void,
   onTimeChanged?: (startTime: number, endTime: number) => void
-  onApplyStateChanged?: (applied: boolean) => void
+  onApplyStateChanged?: (applied: boolean) => void,
+  isInitialState:boolean
 }
 
 function TimeLine(props: TimelineProps) {
@@ -78,9 +79,11 @@ function TimeLine(props: TimelineProps) {
     applied,
     timeStyle = TimeStyle.Classic, foregroundColor, backgroundColor, sliderColor, theme,
     startTime, endTime, accuracy = 'year', stepLength, dividedCount, cumulatively = false,
-    enablePlayControl = false, speed: _speed = TimeSpeed.Medium, autoPlay: _autoPlay, updating = false, onTimeChanged, onApplyStateChanged
+    enablePlayControl = false, speed: _speed = TimeSpeed.Medium, autoPlay: _autoPlay, updating = false, onTimeChanged, onApplyStateChanged,isInitialState=false
   } = props
 
+  
+  const [innerStepLength,setInnerStepLength] = React.useState<DateUnitInputValue>(stepLength);
   const [width, setWidth] = React.useState(_width) // the width of the visible ruler
   const [height, setHeight] = React.useState(_height)
   React.useEffect(() => {
@@ -106,9 +109,13 @@ function TimeLine(props: TimelineProps) {
   //-------custom code start------------
   const [rangeStartTime, setRangeStartTime] = React.useState()
   const rangeUnits = ['year', 'month', 'day', 'hour', 'minute']
-  const [rangeUnit, setRangeUnit] = React.useState('day')
+  const [rangeUnit, setRangeUnit] = React.useState('hour')
   const [rangeInterval, setRangeInterval] = React.useState(1)
+  
   //-------custom code start------------
+
+
+  
 
   const [speed, setSpeed] = React.useState(_speed)
   React.useEffect(() => {
@@ -118,6 +125,46 @@ function TimeLine(props: TimelineProps) {
   React.useEffect(() => {
     setRangeStartTime(startTime);
   }, [startTime])
+
+  React.useEffect(() => {
+    if(endTime&&isInitialState){
+      if(isInitialState){
+        ///debugger;
+        let startTime__ = startTime;
+        let endTime__= endTime;
+        if(new Date().getTime()>=startTime&&new Date().getTime()<=endTime){
+          startTime__ = new Date().getTime();
+        }
+        var interval_ = 60;
+        var unit_ = stepLength.unit;
+        switch (unit_) {
+          case 'hour':
+            interval_ = 3600;
+            break;
+          case 'day':
+            interval_ = 24 * 3600;
+            break;
+          case 'month':
+            interval_ = 30 * 24 * 3600;
+            break;
+          case 'year':
+            interval_ = 365 * 24 * 3600;
+            break;
+        };
+        
+        endTime__ = startTime__ + (interval_ * 1000 * stepLength.val);
+        if(endTime__>endTime){
+          endTime__=endTime;
+        }
+        setRangeStartTime(new Date(startTime__));
+        setStartTimeForStep(startTime__)
+        setEndTimeForStep(endTime__);
+        setEndTimeForTempStep(endTime__);
+        onTimeChanged(startTime__, endTime__); 
+      }
+    }
+    
+  },[isInitialState])
 
   const marginForLR = 7
 
@@ -210,11 +257,11 @@ function TimeLine(props: TimelineProps) {
       const resizeProps = getResizeProps()
       let newStart = resizeProps.startValue
       let newEnd = resizeProps.endValue
-      if (stepLength) {
+      if (innerStepLength) {
         if (evt.edges.left) {
-          newStart = getNewValueByAccuracy(stepLength.unit, new Date(resizeProps.startValue), diff * stepLength.val)
+          newStart = getNewValueByAccuracy(innerStepLength.unit, new Date(resizeProps.startValue), diff * innerStepLength.val)
         } else {
-          newEnd = getNewValueByAccuracy(stepLength.unit, new Date(resizeProps.endValue), diff * stepLength.val)
+          newEnd = getNewValueByAccuracy(innerStepLength.unit, new Date(resizeProps.endValue), diff * innerStepLength.val)
         }
       } else { // divided
         const _accuracy = (resizeProps.extent[1] - resizeProps.extent[0]) / dividedCount
@@ -254,7 +301,7 @@ function TimeLine(props: TimelineProps) {
     setAutoPlay(_autoPlay)
     setEndTimeForTempStep(null)
     setStartTimeForStep(startTime)
-    const _endTime = cumulatively ? startTime : getStepEndTimeForTarget(startTime, endTime, startTime, stepLength, dividedCount)
+    const _endTime = cumulatively ? startTime : getStepEndTimeForTarget(startTime, endTime, startTime, innerStepLength, dividedCount)
     setEndTimeForStep(_endTime)
 
     if (updating) {
@@ -267,7 +314,8 @@ function TimeLine(props: TimelineProps) {
       onTimeChanged(startTime, _endTime)
     }
 
-
+    // debugger;
+    setInnerStepLength(stepLength);
     setRangeInterval(stepLength.val);
     setRangeUnit(stepLength.unit);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -442,7 +490,7 @@ function TimeLine(props: TimelineProps) {
   }, [zoomLevel, startTime, endTime, leftPosition, width, startTimeForStep, endTimeForStep, endTimeForTempStep, maxWidthAndZoomLevel])
 
   const onPreviousOrNextClick = React.useCallback((isNext) => {
-    const nextEndETime = getStepEndTimeForTarget(startTime, endTime, endTimeForStep, stepLength, dividedCount, isNext)
+    const nextEndETime = getStepEndTimeForTarget(startTime, endTime, endTimeForStep, innerStepLength, dividedCount, isNext)
     let newSTime = startTime
     let newETime = endTime
     if (cumulatively) {
@@ -470,7 +518,7 @@ function TimeLine(props: TimelineProps) {
         setEndTimeForTempStep(null)
       }
     } else {
-      const nextStartTime = getStepEndTimeForTarget(startTime, endTime, startTimeForStep, stepLength, dividedCount, isNext)
+      const nextStartTime = getStepEndTimeForTarget(startTime, endTime, startTimeForStep, innerStepLength, dividedCount, isNext)
       //Only display part of current step.
       const keepPartOutOfRight = nextStartTime < endTime && nextEndETime > endTime
       //RTL-case 1 : Keet it when clicking previous-btn and focusing on the first step.
@@ -513,7 +561,7 @@ function TimeLine(props: TimelineProps) {
 
     onTimeChanged(newSTime, newETime)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dividedCount, endTime, endTimeForStep, startTime, startTimeForStep, stepLength, cumulatively, onTimeChanged, updateLeftPositionByPlay])
+  }, [dividedCount, endTime, endTimeForStep, startTime, startTimeForStep, innerStepLength, cumulatively, onTimeChanged, updateLeftPositionByPlay])
 
   const stopPlay = React.useCallback(() => { // no hooks variable used
     if (playRef.current) {
@@ -748,15 +796,17 @@ function TimeLine(props: TimelineProps) {
               format="shortDateLongTime"
               isTimeLong
               onChange={(value: any) => {
-                if (!value) {
-                  setRangeStartTime(null);
-                  return;
-                }
+                // if (!value) {
+                //   setRangeStartTime(null);
+                //   return;
+                // }
                 let val_ = 0;
                 if (value == "NOW") {
                   val_ = new Date().getTime();
                 } else if (value == "YESTERDAY") {
                   val_ = new Date(Date.now() - 86400000).getTime();
+                } else if (!value){
+                  val_ = startTime
                 } else {
                   val_ = value;
                 }
@@ -849,9 +899,9 @@ function TimeLine(props: TimelineProps) {
               setEndTimeForTempStep(endTime_);
               onTimeChanged(rangeStartTime, endTime_)
               setShowStartDatetimePopper(false)
-              debugger;;
-              //props.onUpdateStepLength({ unit: unit_, val: rangeInterval }, rangeStartTime)
-              console.log(stepLength);
+              //debugger;;
+              setInnerStepLength({ unit: unit_, val: rangeInterval })
+              //console.log(stepLength);
             }}
           >
             Apply

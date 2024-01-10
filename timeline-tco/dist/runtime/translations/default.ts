@@ -1,5 +1,5 @@
 export default {
-  _widgetLabel: 'Timeline',
+  _widgetLabel: 'Timeline-TCO',
   overallTimeExtent: 'Overall time extent',
   filteringApplied: 'Timeline filtering applied',
   noTlFromHonoredMapWarning: 'Oops! Seems like something went wrong with this map and we cannot get any valid time settings.',

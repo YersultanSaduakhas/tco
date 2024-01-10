@@ -38,7 +38,8 @@ const Widget = (props: TimelineProps) => {
   const [width, setWidth] = React.useState(null)
   const [timeSettingsForRuntime, setDataSourcesForRuntime] = React.useState(null)
   const widgetRef = React.useRef<HTMLDivElement>(null)
-
+  
+  const [isInitialState, setIsInitialState] = React.useState(false)
   const mvManager = React.useMemo(() => MapViewManager.getInstance(), [])
   const dsManager = React.useMemo(() => DataSourceManager.getInstance(), [])
 
@@ -174,7 +175,8 @@ const Widget = (props: TimelineProps) => {
 
   React.useEffect(() => {
     if (timeExtent) {
-      onTimeChanged(timeExtent[0], timeExtent[1], !applied)
+      onTimeChanged(new Date().getTime(), timeSettingsForRuntime.endTime?.value, !applied)
+      if(!isInitialState) setIsInitialState(true);
     }
   }, [timeExtent, applied, onTimeChanged])
 
@@ -251,16 +253,6 @@ const Widget = (props: TimelineProps) => {
     timeSettingsForRuntime.stepLength = stepLength_;
     timeSettingsForRuntime.startTime.value = startIme;
     setDataSourcesForRuntime(timeSettingsForRuntime);
-  }
-
-  const updateStartTime = (startTime: any) => {
-    // timeSettingsForRuntime.startTime = startTime;
-    // setDataSourcesForRuntime(timeSettingsForRuntime);
-  }
-
-  const updateEndTime = (endTime: any) => {
-    // timeSettingsForRuntime.endTime = endTime;
-    // setDataSourcesForRuntime(timeSettingsForRuntime);
   }
 
   //--------- custom code end -----------------
@@ -344,8 +336,6 @@ const Widget = (props: TimelineProps) => {
             ? <div className='jimu-secondary-loading' css={css`position: 'absolute';left: '50%';top: '50%';`} />
             : timeSettingsForRuntime && width && <TimeLine
               onUpdateStepLength={(stepLength: any, startTime: any) => { updateStepLength(stepLength, startTime) }}
-              updateStartTime={(startTime: any) => { updateStartTime(startTime) }}
-              updateEndTime={(endTime: any) => { updateEndTime(endTime) }}
               theme={theme}
               width={width}
               updating={isDsLoading || isDsUpdating}
@@ -372,6 +362,7 @@ const Widget = (props: TimelineProps) => {
                 getAppStore().dispatch(appActions.widgetStatePropChange('pTimeLineTcoId', 'pTimeLineTcoDates', sendData))
               }}
               onApplyStateChanged={applied => { setApplied(applied) }}
+              isInitialState={isInitialState}
             />
         }
       </div>
