@@ -7,6 +7,7 @@ import { Select, Option } from 'jimu-ui'
 const Widget = (props: AllWidgetProps<IMConfig>) => {
   const [jimuMapView, setJimuMapView] = React.useState<JimuMapView>(null)
   const [selectedScale, setSelectedScale] = React.useState<number>(null)
+  //Osi jerde massivke kerek scale-derdi qoya alasiz
   const [scales, setScales] = React.useState<number[]>([5000000, 2400000, 700000])
   const activeViewChangeHandler = (jmv: JimuMapView) => {
     if (jmv) {
