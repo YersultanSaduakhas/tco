@@ -1,0 +1,4 @@
+{
+  "exampleConfigProperty": "test",
+  "scales":[ 5000000, 2400000, 700000 ]
+}
