@@ -9,6 +9,7 @@ const Widget = (props: AllWidgetProps<IMConfig>) => {
   const [selectedScale, setSelectedScale] = React.useState<number>(null)
   //Osi jerde massivke kerek scale-derdi qoya alasiz
   const [scales, setScales] = React.useState<number[]>([5000000, 2400000, 700000])
+  
   const activeViewChangeHandler = (jmv: JimuMapView) => {
     if (jmv) {
       setSelectedScale(jmv.view.scale)
